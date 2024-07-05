@@ -1,0 +1,6 @@
+vllm==0.5.0.post1
+vllm-flash-attn==2.5.9
+flash_attn==2.5.9.post1
+torch==2.3.0
+torchvision==0.18.0
+transformers==4.41.2

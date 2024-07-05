@@ -1,0 +1,9 @@
+# macos
+**/.DS_Store
+
+# checkpoints
+**/.bin
+**/.safetensors
+
+# pycache
+**/__pycache__/
