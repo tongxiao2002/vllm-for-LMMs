@@ -266,7 +266,7 @@ class CogVLMModel(nn.Module):
 
         prev_is_boi = False
         for idx in range(len(positions)):
-            if idx == 0:
+            if positions[idx].item() == 0:
                 if input_ids[idx].item() == self.image_token_id:
                     prev_is_boi = True
                 continue
