@@ -1,11 +1,12 @@
 import tqdm
 from .base_dataset import MultimodalDataset
 from vllm.multimodal.image import ImagePixelData
+from .dataset_args import DatasetArgs
 
 
 class MultimodalDatasetForLlavaR(MultimodalDataset):
-    def __init__(self, dataset_name: str, model_path: str, *args, **kwargs):
-        super().__init__(dataset_name, model_path, *args, **kwargs)
+    def __init__(self, dataset_args: DatasetArgs, model_path: str, *args, **kwargs):
+        super().__init__(dataset_args)
         self.system_prompt = (
             "You are LLaVA, a large language and vision assistant trained by UW Madison WAIV Lab."
             "You are able to understand the visual content that the user provides, "

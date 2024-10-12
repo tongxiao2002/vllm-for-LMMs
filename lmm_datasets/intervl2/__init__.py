@@ -1,0 +1,1 @@
+from .internvl2_dataset import MultimodalDatasetForInterVL2

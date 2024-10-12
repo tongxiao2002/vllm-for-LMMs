@@ -5,5 +5,9 @@
 **/.bin
 **/.safetensors
 
+# build
+build
+**/*egg.info
+
 # pycache
 **/__pycache__/

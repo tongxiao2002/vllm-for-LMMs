@@ -4,11 +4,12 @@ from torchvision import transforms
 from transformers import AutoTokenizer
 from .base_dataset import MultimodalDataset
 from vllm.multimodal.image import ImagePixelData
+from .dataset_args import DatasetArgs
 
 
 class MultimodalDatasetForCogVLM2(MultimodalDataset):
-    def __init__(self, dataset_name: str, model_path: str, *args, **kwargs):
-        super().__init__(dataset_name, model_path, *args, **kwargs)
+    def __init__(self, dataset_args: DatasetArgs, model_path: str, *args, **kwargs):
+        super().__init__(dataset_args)
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
         self.image_size = 1344
 

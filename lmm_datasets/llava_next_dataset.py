@@ -1,11 +1,12 @@
 import tqdm
 from vllm.multimodal.image import ImagePixelData
 from .base_dataset import MultimodalDataset
+from .dataset_args import DatasetArgs
 
 
 class MultimodalDatasetForLlavaNext(MultimodalDataset):
-    def __init__(self, dataset_name: str, model_path: str, *args, **kwargs):
-        super().__init__(dataset_name, model_path, *args, **kwargs)
+    def __init__(self, dataset_args: DatasetArgs, *args, **kwargs):
+        super().__init__(dataset_args)
         self.image_size = 336
 
     def _prepare_vllm_data_and_args(self):
