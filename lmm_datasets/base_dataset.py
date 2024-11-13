@@ -1,28 +1,32 @@
 import os
 import json
+import string
+import base64
+from io import BytesIO
 from PIL import Image
+from functools import cached_property
 from torch.utils.data import Dataset
 from .dataset_args import DatasetArgs
 
-problem_solving_prompt = (
-    "Please solve the geometry problem based on the following problem text and diagram. "
-    "Let's think step by step.\n"
-    "Question: {question}\nAnswer: "
-)
 
-diagram_description_prompt = (
-    "Please describe the diagram of the geometry problem in detail."
-)
+def encode_image_base64(image: Image.Image):
+    buffered = BytesIO()
+    img_format = image.format
+    image.save(buffered, format=img_format)
+    img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+    img_str = f"data:image/{img_format};base64,{img_str}"
+    return img_str
 
 
 class MultimodalDataset(Dataset):
-    def __init__(self, dataset_args: DatasetArgs, model_path: str):
+    def __init__(self, dataset_args: DatasetArgs):
         super().__init__()
         self.dataset_name = dataset_args.dataset_name
-        self.generate_caption = dataset_args.generate_caption
-        self.generate_solution = dataset_args.generate_solution
-        self.prompt_provide_choices = dataset_args.prompt_provide_choices
-        self.model_path = model_path
+        self.dataset_path = dataset_args.dataset_path
+        self.prompt = dataset_args.prompt
+        # self.generate_caption = dataset_args.generate_caption
+        # self.generate_solution = dataset_args.generate_solution
+        # self.prompt_provide_choices = dataset_args.prompt_provide_choices
 
         self.data = []
         self.dataset_basedir = os.path.join("data", self.dataset_name, "test")
@@ -60,18 +64,19 @@ class MultimodalDataset(Dataset):
             yield self.data[idx:idx + batch_size]
             idx += batch_size
 
-    @property
+    def build_prompt(self, dict_data: dict, **kwargs):
+        field_names = [item[1] for item in string.Formatter().parse(self.prompt) if item[1] is not None]
+        fields = {**dict_data, **kwargs}
+        return self.prompt.format(**{field: fields[field] for field in field_names})
+
+    @cached_property
     def instruction_data(self):
         instruction_data = []
         for item in self.data:
-            question = item.pop('question')
-            if self.generate_solution:
-                prompt = problem_solving_prompt.format(question=question)
-            else:
-                prompt = diagram_description_prompt
+            prompt = self.build_prompt(item)
             instruction_data.append({
-                "question": prompt,
                 **item,
+                "question": prompt,
             })
         return instruction_data
 

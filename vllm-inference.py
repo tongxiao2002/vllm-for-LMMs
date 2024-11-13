@@ -2,37 +2,22 @@ import os
 import json
 import argparse
 from tret import TretArguments, TretWorkspace
-from vllm import LLM, SamplingParams, ModelRegistry
+from vllm import LLM, SamplingParams
 from typing import Dict
 from lmm_datasets.dataset_args import DatasetArgs
 from lmm_datasets import (
     MultimodalDataset,
     MultimodalDatasetForLlava,
-    MultimodalDatasetForLlavaR,
     MultimodalDatasetForLlavaNext,
-    MultimodalDatasetForQwenVL,
-    MultimodalDatasetForCogVLM2,
     MultimodalDatasetForInterVL2,
+    MultimodalDatasetForQwen2VL
 )
-from lmm_modeling import (
-    LLavaRForConditionalGeneration,
-    QwenVLLMHeadModel,
-    CogVLM2ForCausalLM,
-    InternVLForCausalLM,
-)
-
-ModelRegistry.register_model("LlavaRForConditionalGeneration", LLavaRForConditionalGeneration)
-ModelRegistry.register_model("QwenVLLMHeadModel", QwenVLLMHeadModel)
-ModelRegistry.register_model("CogVLM2ForCausalLM", CogVLM2ForCausalLM)
-ModelRegistry.register_model("InternVLForCausalLM", InternVLForCausalLM)
 
 dataset_cls_map: Dict[str, MultimodalDataset] = {
-    "cogvlm2-llama3-chat-19b": MultimodalDatasetForCogVLM2,
     "internvl2-40b": MultimodalDatasetForInterVL2,
-    "qwen-vl-chat": MultimodalDatasetForQwenVL,
-
+    "qwen2-vl-7b": MultimodalDatasetForQwen2VL,
+    "qwen2-vl-72b": MultimodalDatasetForQwen2VL,
     "llava-1.5-7b-hf": MultimodalDatasetForLlava,
-    "llavar": MultimodalDatasetForLlavaR,
     "llava-v1.6-mistral-7b-hf": MultimodalDatasetForLlavaNext,
 }
 
@@ -44,11 +29,11 @@ def parse_args():
 
     # dataset args
     parser.add_argument("--dataset_name", type=str, default="Geometry3K")
-    parser.add_argument("--generate_caption", action="store_true")
-    parser.add_argument("--generate_solution", action="store_true")
+    parser.add_argument("--dataset_path", type=str, default="")
+    parser.add_argument("--prompt_name", type=str, default="")
 
     # model args
-    parser.add_argument("--model_name", type=str, default="InternVL2-40B")
+    parser.add_argument("--model_name", type=str, default="Qwen2-VL-7B-Instruct")
 
     # running args
     parser.add_argument("--regenerate", action="store_true")
@@ -56,25 +41,15 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_output_prefix(dataset_args: DatasetArgs):
-    if dataset_args.generate_caption:
-        return "caption"
-    else:
-        return "solution"
-
-
 def run_inference():
     args = parse_args()
-    dataset_name = args.dataset_name
     model_name = args.model_name
     tp_size = args.tp_size
 
     dataset_args = DatasetArgs(
         dataset_name=args.dataset_name,
-        generate_caption=args.generate_caption,
-        generate_solution=args.generate_solution,
-        prompt_provide_choices=args.prompt_provide_choices,
-        perturb_blank_pixels=args.perturb_blank_pixels,
+        dataset_path=args.dataset_path,
+        prompt=eval(args.prompt_name),
     )
 
     tret_args = TretArguments(
@@ -87,7 +62,7 @@ def run_inference():
 
     model_path = os.path.join("checkpoints", model_name)
 
-    prefix = get_output_prefix(dataset_args)
+    prefix = f"{model_name}-{args.prompt_name}"
     output_filepath = os.path.join(output_dir, f"{prefix}-results.json")
 
     dataset_cls = None
@@ -120,19 +95,25 @@ def run_inference():
         **vllm_args['sampling_args'],
     )
 
-    completions = llm.generate(
-        sampling_params=sampling_params,
-        **vllm_data,
-    )
+    if "prompts" in vllm_data:
+        completions = llm.generate(
+            sampling_params=sampling_params,
+            **vllm_data,
+        )
+    elif "messages" in vllm_data:
+        completions = llm.chat(
+            sampling_params=sampling_params,
+            **vllm_data,
+        )
+    else:
+        raise ValueError("Unknown data format.")
 
     results = {}
     for dataitem, completion in zip(dataset.data, completions):
-        prompt = completion.prompt
         generated_text = completion.outputs[0].text
         results[dataitem["id"]] = {
-            "ground-truth": dataitem["ground-truth"],
+            **dataitem,
             "response": generated_text,
-            "prompt": prompt,
         }
     json.dump(
         results,
