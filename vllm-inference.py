@@ -4,6 +4,7 @@ import argparse
 from tret import TretArguments, TretWorkspace
 from vllm import LLM, SamplingParams
 from typing import Dict
+from lmm_datasets.prompts import *
 from lmm_datasets.dataset_args import DatasetArgs
 from lmm_datasets import (
     MultimodalDataset,
@@ -15,8 +16,7 @@ from lmm_datasets import (
 
 dataset_cls_map: Dict[str, MultimodalDataset] = {
     "internvl2-40b": MultimodalDatasetForInterVL2,
-    "qwen2-vl-7b": MultimodalDatasetForQwen2VL,
-    "qwen2-vl-72b": MultimodalDatasetForQwen2VL,
+    "qwen2-vl": MultimodalDatasetForQwen2VL,
     "llava-1.5-7b-hf": MultimodalDatasetForLlava,
     "llava-v1.6-mistral-7b-hf": MultimodalDatasetForLlavaNext,
 }
@@ -28,9 +28,8 @@ def parse_args():
     parser.add_argument("--workspace_name", type=str, default="test")
 
     # dataset args
-    parser.add_argument("--dataset_name", type=str, default="Geometry3K")
-    parser.add_argument("--dataset_path", type=str, default="")
-    parser.add_argument("--prompt_name", type=str, default="")
+    parser.add_argument("--dataset_name_or_path", type=str, default="data/MMVP")
+    parser.add_argument("--prompt_name", type=str, default="gps_problem_solving")
 
     # model args
     parser.add_argument("--model_name", type=str, default="Qwen2-VL-7B-Instruct")
@@ -47,8 +46,7 @@ def run_inference():
     tp_size = args.tp_size
 
     dataset_args = DatasetArgs(
-        dataset_name=args.dataset_name,
-        dataset_path=args.dataset_path,
+        dataset_name_or_path=args.dataset_name_or_path,
         prompt=eval(args.prompt_name),
     )
 
@@ -57,7 +55,7 @@ def run_inference():
         create_directory=True,
     )
     workspace = TretWorkspace(arguments=tret_args)
-    output_dir = os.path.join(workspace.workspace_dir, "runs", dataset_args.dataset_name)
+    output_dir = os.path.join(workspace.workspace_dir, "runs", dataset_args.dataset_name_or_path.replace('/', '_'))
     os.makedirs(output_dir, exist_ok=True)
 
     model_path = os.path.join("checkpoints", model_name)

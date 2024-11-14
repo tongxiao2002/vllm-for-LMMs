@@ -1,5 +1,4 @@
 import tqdm
-from vllm.multimodal.image import ImagePixelData
 from .base_dataset import MultimodalDataset
 from .dataset_args import DatasetArgs
 

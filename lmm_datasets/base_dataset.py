@@ -4,6 +4,7 @@ import string
 import base64
 from io import BytesIO
 from PIL import Image
+from datasets import load_dataset
 from functools import cached_property
 from torch.utils.data import Dataset
 from .dataset_args import DatasetArgs
@@ -21,47 +22,22 @@ def encode_image_base64(image: Image.Image):
 class MultimodalDataset(Dataset):
     def __init__(self, dataset_args: DatasetArgs):
         super().__init__()
-        self.dataset_name = dataset_args.dataset_name
-        self.dataset_path = dataset_args.dataset_path
+        self.dataset_name_or_path = dataset_args.dataset_name_or_path
         self.prompt = dataset_args.prompt
-        # self.generate_caption = dataset_args.generate_caption
-        # self.generate_solution = dataset_args.generate_solution
-        # self.prompt_provide_choices = dataset_args.prompt_provide_choices
 
-        self.data = []
-        self.dataset_basedir = os.path.join("data", self.dataset_name, "test")
-
-        for data_id in os.listdir(self.dataset_basedir):
-            json_data_path = os.path.join(self.dataset_basedir, data_id, "data.json")
-            json_data = json.load(open(json_data_path, "r", encoding="utf-8"))
-            image = Image.open(os.path.join(self.dataset_basedir, data_id, "img_diagram.png")).convert('RGB')
-            if self.dataset_name.lower() == "geometry3k":
-                answer = json_data['precise_value'][ord(json_data['answer'].lower()) - ord('a')]
-                question = json_data['problem_text']
-            elif self.dataset_name.lower() in ["geoqa", 'geoqa+']:
-                answer = json_data['target_number']
-                question = json_data['English_problem']
-                for number_idx, number in enumerate(json_data['numbers']):
-                    question = question.replace(f"N_{number_idx}", str(number))
-            else:
-                raise ValueError("Only support datasets ['Geometry3K', 'GeoQA', 'GeoQA+'].")
-            self.data.append({
-                "id": data_id,
-                "question": question,
-                "image": image,
-                "ground-truth": answer,
-            })
+        self.dataset = load_dataset(self.dataset_name_or_path, split="test", trust_remote_code=True)
+        print(f"Loaded {len(self.dataset)} data samples from '{self.dataset_name_or_path}'.")
 
     def __getitem__(self, idx):
-        return self.data[idx]
+        return self.dataset[idx]
 
     def __len__(self):
-        return len(self.data)
+        return len(self.dataset)
 
     def batch_iter(self, batch_size: int):
         idx = 0
-        while idx < len(self.data):
-            yield self.data[idx:idx + batch_size]
+        while idx < len(self.dataset):
+            yield self.dataset[idx:idx + batch_size]
             idx += batch_size
 
     def build_prompt(self, dict_data: dict, **kwargs):
@@ -72,7 +48,10 @@ class MultimodalDataset(Dataset):
     @cached_property
     def instruction_data(self):
         instruction_data = []
-        for item in self.data:
+        for item in self.dataset:
+            # if "image" in item and "bytes" in item['image']:
+            #     buffer = BytesIO(item['image']['bytes'])
+            #     item['image'] = Image.open(buffer)
             prompt = self.build_prompt(item)
             instruction_data.append({
                 **item,
@@ -85,9 +64,6 @@ class MultimodalDataset(Dataset):
         images = [item['image'] for item in batch]
         batch_data = self._process_data(texts, images)
         return batch_data
-
-    def _process_data(self, texts, images):
-        raise NotImplementedError
 
     def _prepare_vllm_data_and_args(self):
         raise NotImplementedError

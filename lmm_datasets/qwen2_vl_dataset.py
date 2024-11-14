@@ -1,6 +1,5 @@
 import tqdm
 from PIL import Image
-from qwen_vl_utils import process_vision_info
 from transformers import AutoProcessor
 from .base_dataset import MultimodalDataset, encode_image_base64
 from .dataset_args import DatasetArgs

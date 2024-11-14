@@ -5,6 +5,9 @@
 **/.bin
 **/.safetensors
 
+# IDE
+.vscode/
+
 # build
 build
 **/*egg.info
