@@ -4,10 +4,23 @@ import string
 import base64
 from io import BytesIO
 from PIL import Image
-from datasets import load_dataset
+from datasets import (
+    Dataset as ArrowDataset,
+    load_dataset,
+)
 from functools import cached_property
 from torch.utils.data import Dataset
 from .dataset_args import DatasetArgs
+
+kwargs_for_datasets = {
+    "mathverse": {
+        "path": "data/MathVerse",
+        "name": "testmini",
+        "split": "testmini",
+        "trust_remote_code": True,
+        "primary_key": "sample_index",
+    }
+}
 
 
 def encode_image_base64(image: Image.Image):
@@ -24,8 +37,13 @@ class MultimodalDataset(Dataset):
         super().__init__()
         self.dataset_name_or_path = dataset_args.dataset_name_or_path
         self.prompt = dataset_args.prompt
+        self.dataset_name = os.path.basename(self.dataset_name_or_path).lower()
 
-        self.dataset = load_dataset(self.dataset_name_or_path, split="test", trust_remote_code=True)
+        assert self.dataset_name in kwargs_for_datasets, "Dataset not found in 'kwargs_for_datasets'."
+
+        dataset_kwargs = kwargs_for_datasets[self.dataset_name]
+        self.dataset_primary_key = dataset_kwargs.pop("primary_key")
+        self.dataset: ArrowDataset = load_dataset(**dataset_kwargs)
         print(f"Loaded {len(self.dataset)} data samples from '{self.dataset_name_or_path}'.")
 
     def __getitem__(self, idx):
@@ -54,6 +72,7 @@ class MultimodalDataset(Dataset):
             #     item['image'] = Image.open(buffer)
             prompt = self.build_prompt(item)
             instruction_data.append({
+                "id": item[self.dataset_primary_key],
                 **item,
                 "question": prompt,
             })

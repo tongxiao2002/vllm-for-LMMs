@@ -13,15 +13,7 @@ class MultimodalDatasetForInterVL2(MultimodalDataset):
             "The assistant gives helpful, detailed, and polite answers to the human's questions."
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-        self.image_size = 448
-        self.patch_size = 14
-        self.downsample_ratio = 0.5
-        self.img_start_token = '<img>'
-        self.img_end_token = '</img>'
-        self.img_context_token = '<IMG_CONTEXT>'
-        self.template = get_conv_template('Hermes-2')
-
-        self.image_token_id = self.tokenizer.convert_tokens_to_ids(self.img_context_token)
+        self.template = get_conv_template('internlm2-chat')
 
     def _prepare_vllm_data_and_args(self):
         vllm_data = []
@@ -33,6 +25,7 @@ class MultimodalDatasetForInterVL2(MultimodalDataset):
             },
             "sampling_args": {
                 "stop": [self.template.sep],
+                "stop_token_ids": self.template.stop_token_ids,
             },
         }
 

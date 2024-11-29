@@ -15,7 +15,8 @@ from lmm_datasets import (
 )
 
 dataset_cls_map: Dict[str, MultimodalDataset] = {
-    "internvl2-40b": MultimodalDatasetForInterVL2,
+    "r-cot": MultimodalDatasetForInterVL2,
+    "internvl2": MultimodalDatasetForInterVL2,
     "qwen2-vl": MultimodalDatasetForQwen2VL,
     "llava-1.5-7b-hf": MultimodalDatasetForLlava,
     "llava-v1.6-mistral-7b-hf": MultimodalDatasetForLlavaNext,
@@ -28,11 +29,11 @@ def parse_args():
     parser.add_argument("--workspace_name", type=str, default="test")
 
     # dataset args
-    parser.add_argument("--dataset_name_or_path", type=str, default="data/MMVP")
-    parser.add_argument("--prompt_name", type=str, default="gps_problem_solving")
+    parser.add_argument("--dataset_name_or_path", type=str, default="data/MathVerse")
+    parser.add_argument("--prompt_name", type=str, default="")
 
     # model args
-    parser.add_argument("--model_name", type=str, default="Qwen2-VL-7B-Instruct")
+    parser.add_argument("--model_name", type=str, default="R-CoT-8B")
 
     # running args
     parser.add_argument("--regenerate", action="store_true")
@@ -47,7 +48,8 @@ def run_inference():
 
     dataset_args = DatasetArgs(
         dataset_name_or_path=args.dataset_name_or_path,
-        prompt=eval(args.prompt_name),
+        # prompt=eval(args.prompt_name),
+        prompt="{query_cot}",
     )
 
     tret_args = TretArguments(
@@ -80,7 +82,7 @@ def run_inference():
         tokenizer=model_path,
         tokenizer_mode="slow",
         tensor_parallel_size=tp_size,
-        gpu_memory_utilization=0.9,
+        gpu_memory_utilization=0.95,
         trust_remote_code=True,
         **vllm_args['llm_args'],
     )
@@ -106,13 +108,16 @@ def run_inference():
     else:
         raise ValueError("Unknown data format.")
 
-    results = {}
-    for dataitem, completion in zip(dataset.data, completions):
+    results = []
+    for dataitem, completion in zip(dataset.instruction_data, completions):
         generated_text = completion.outputs[0].text
-        results[dataitem["id"]] = {
+        if "image" in dataitem:
+            _ = dataitem.pop("image")
+
+        results.append({
             **dataitem,
             "response": generated_text,
-        }
+        })
     json.dump(
         results,
         open(output_filepath, "w", encoding="utf-8"),
